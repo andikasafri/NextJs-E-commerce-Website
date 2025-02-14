@@ -18,8 +18,16 @@ import {
   reportPerformanceMetrics,
   PerformanceMetrics,
 } from "@/lib/utils/performance-monitoring";
+import {
+  ArrowDown,
+  ArrowUp,
+  DollarSign,
+  Package,
+  ShoppingCart,
+  Users,
+} from "lucide-react";
 
-// Lazy load charts as they're heavy and below the fold
+// Lazy load charts
 const DynamicLineChart = lazy(() =>
   import("recharts").then((mod) => ({ default: mod.LineChart }))
 );
@@ -52,7 +60,7 @@ function AdminDashboard() {
         const data = await getAdminStats();
         setStats(data);
 
-        // Measure and report performance after data load
+        // Measure and report performance
         const metrics = measurePageLoad();
         if (metrics) {
           const performanceMetrics: PerformanceMetrics = {
@@ -62,8 +70,6 @@ function AdminDashboard() {
             totalLoadTime: metrics.totalLoadTime,
           };
           reportPerformanceMetrics(performanceMetrics);
-        } else {
-          console.error("Failed to measure page load performance.");
         }
       } catch (error) {
         console.error("Failed to fetch stats:", error);
@@ -83,80 +89,124 @@ function AdminDashboard() {
 
   return (
     <div className="space-y-6">
-      {/* Stats Cards - Immediately visible content */}
-      <StatsCards stats={stats} />
+      <h1 className="text-3xl font-bold">Dashboard Overview</h1>
 
-      {/* Charts - Below the fold, lazy loaded */}
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <StatCard
+          title="Total Revenue"
+          value={`$${stats.revenue.total.toLocaleString()}`}
+          change={stats.revenue.growth}
+          icon={<DollarSign className="h-6 w-6" />}
+        />
+        <StatCard
+          title="Total Orders"
+          value={stats.orders.total.toString()}
+          change={stats.orders.growth}
+          icon={<ShoppingCart className="h-6 w-6" />}
+        />
+        <StatCard
+          title="Total Customers"
+          value={stats.customers.total.toString()}
+          change={stats.customers.growth}
+          icon={<Users className="h-6 w-6" />}
+        />
+        <StatCard
+          title="Products in Stock"
+          value={stats.inventory.total.toString()}
+          change={-((stats.inventory.lowStock / stats.inventory.total) * 100)}
+          icon={<Package className="h-6 w-6" />}
+        />
+      </div>
+
+      {/* Charts Section */}
       <ErrorBoundary>
-        <Suspense fallback={<Skeleton className="h-[400px]" />}>
-          <Card className="p-6">
-            <h2 className="text-xl font-semibold mb-6">Revenue Breakdown</h2>
-            <div className="h-[400px]">
-              <DynamicResponsiveContainer width="100%" height="100%">
-                <DynamicLineChart data={stats.revenue.breakdown}>
-                  <DynamicCartesianGrid strokeDasharray="3 3" />
-                  <DynamicXAxis dataKey="period" />
-                  <DynamicYAxis />
-                  <DynamicTooltip />
-                  <DynamicLine
-                    type="monotone"
-                    dataKey="amount"
-                    stroke="hsl(var(--primary))"
-                    name="Revenue"
-                  />
-                </DynamicLineChart>
-              </DynamicResponsiveContainer>
-            </div>
-          </Card>
-        </Suspense>
-
-        {/* Analytics Components - Dynamically imported */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Revenue Chart */}
           <Suspense fallback={<Skeleton className="h-[400px]" />}>
-            <DynamicSalesForecast />
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-6">Revenue Trend</h2>
+              <div className="h-[400px]">
+                <DynamicResponsiveContainer width="100%" height="100%">
+                  <DynamicLineChart data={stats.revenue.breakdown}>
+                    <DynamicCartesianGrid strokeDasharray="3 3" />
+                    <DynamicXAxis dataKey="period" />
+                    <DynamicYAxis />
+                    <DynamicTooltip />
+                    <DynamicLine
+                      type="monotone"
+                      dataKey="amount"
+                      stroke="hsl(var(--primary))"
+                      name="Revenue"
+                    />
+                  </DynamicLineChart>
+                </DynamicResponsiveContainer>
+              </div>
+            </Card>
           </Suspense>
+
+          {/* Customer Segments */}
           <Suspense fallback={<Skeleton className="h-[400px]" />}>
             <DynamicCustomerSegments />
           </Suspense>
         </div>
 
-        {/* Inventory Management - Dynamically imported */}
-        <Suspense fallback={<Skeleton className="h-[600px]" />}>
-          <DynamicInventoryManagement />
-        </Suspense>
+        {/* Additional Analytics */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Suspense fallback={<Skeleton className="h-[400px]" />}>
+            <DynamicSalesForecast />
+          </Suspense>
+          <Suspense fallback={<Skeleton className="h-[400px]" />}>
+            <DynamicInventoryManagement />
+          </Suspense>
+        </div>
       </ErrorBoundary>
     </div>
   );
 }
 
-// Extracted to separate component for better code organization
-function StatsCards({ stats }: { stats: AdminStats }) {
+function StatCard({
+  title,
+  value,
+  change,
+  icon,
+}: {
+  title: string;
+  value: string;
+  change: number;
+  icon: React.ReactNode;
+}) {
+  const isPositive = change >= 0;
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {/* Example usage of stats */}
-      <div className="stat-card">
-        <h3>Total Revenue</h3>
-        <p>{stats.revenue.total}</p>
+    <Card className="p-6">
+      <div className="flex items-center justify-between">
+        <div className="p-2 bg-primary/10 rounded-full">{icon}</div>
+        <div
+          className={`flex items-center ${
+            isPositive ? "text-green-600" : "text-red-600"
+          }`}
+        >
+          {isPositive ? (
+            <ArrowUp className="h-4 w-4 mr-1" />
+          ) : (
+            <ArrowDown className="h-4 w-4 mr-1" />
+          )}
+          {Math.abs(change)}%
+        </div>
       </div>
-      <div className="stat-card">
-        <h3>Total Orders</h3>
-        <p>{stats.orders.total}</p>
+      <div className="mt-4">
+        <p className="text-sm text-muted-foreground">{title}</p>
+        <p className="text-2xl font-bold">{value}</p>
       </div>
-      <div className="stat-card">
-        <h3>Total Customers</h3>
-        <p>{stats.customers.total}</p>
-      </div>
-      <div className="stat-card">
-        <h3>Total Inventory</h3>
-        <p>{stats.inventory.total}</p>
-      </div>
-    </div>
+    </Card>
   );
 }
 
 function DashboardSkeleton() {
   return (
     <div className="space-y-6">
+      <Skeleton className="h-10 w-48" />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {Array.from({ length: 4 }).map((_, i) => (
           <Card key={i} className="p-6">
@@ -164,9 +214,14 @@ function DashboardSkeleton() {
           </Card>
         ))}
       </div>
-      <Card className="p-6">
-        <Skeleton className="h-[400px]" />
-      </Card>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="p-6">
+          <Skeleton className="h-[400px]" />
+        </Card>
+        <Card className="p-6">
+          <Skeleton className="h-[400px]" />
+        </Card>
+      </div>
     </div>
   );
 }
